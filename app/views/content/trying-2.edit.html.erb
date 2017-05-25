@@ -1,0 +1,12 @@
+<%= simple_form_for @content, url: @section.present? ? casebook_section_path(@casebook, @section) : casebook_path(@casebook), class: 'casebook-details' do |f| %>
+	<% if @section.present? %>
+    <header class="casebook-header">
+      <a class="casebook-title" href="<% edit_casebook_path(@casebook) %>"> <%= @casebook.title %></a>
+      <div class="collaborators"><%= render :partial => 'content/collaborators', :locals => { :content => @casebook } %> </div>
+		</header>
+ 	<% end %>
+
+ 	<header class="content">
+
+ 		
+<% end %>
