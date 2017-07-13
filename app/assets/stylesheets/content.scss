@@ -122,6 +122,12 @@ main > header.casebook, main > header.dashboard {
     &.clone-casebook {
       background-image: asset-url('ui/casebook/clone.png');
     }
+    &.export {
+      background-image: asset-url('ui/casebook/export.png');
+    }
+    &.more, &.edit, &.preview {
+      background-image: asset-url('ui/casebook/more.png');
+    }
   }
 }
 
@@ -409,6 +415,10 @@ form.edit_content_resource, form.edit_content_section, form.edit_content_caseboo
     float: left;
     position: relative;
     top: 10px;
+    
+    &[data-elided-annotation] {
+      display: none;
+    }
   }
   .p-number {
     @include sans-serif($regular, 12px, 12px);
