@@ -58,7 +58,7 @@ class Content::Child < Content::Node
   def to_param
     "#{ordinals.join '.'}-#{slug}"
   end
-
+  
   private
 
   # moves siblings and niblings before validation
@@ -72,7 +72,6 @@ class Content::Child < Content::Node
     end
     .where(['ordinals[?] >= ?', ord_idx, ordinals.last]) # after us
     .update_all ['ordinals[?] = ordinals[?] + 1', ord_idx, ord_idx]
-    logger.debug casebook.contents.reload.map &:ordinal_string
   end
 
   # if the Node at a has been reordered to before b, determine where a's children are now
@@ -99,7 +98,6 @@ class Content::Child < Content::Node
     casebook.contents
     .where(['ordinals[1:?] = ARRAY[?]', adjusted_prior_ordinals.length, adjusted_prior_ordinals]) # our descendants
     .update_all ['ordinals = ARRAY[?] || ordinals[?:array_length(ordinals, 1)]', ordinals, adjusted_prior_ordinals.length + 1]
-    logger.debug casebook.contents.reload.map &:ordinal_string
   end
 
   def reflow_casebook

@@ -32,4 +32,10 @@ namespace :h2o do
     puts "Deleting #{dir}.delete (this may take a while)"
     system("rm -rf #{Rails.root}#{dir}.delete")
   end
+
+  desc 'Migrate All Playlists'
+  task(:migrate_playlists => :environment) do
+    Migrate::Playlists.migrate_all
+    puts 'Done!'
+  end
 end

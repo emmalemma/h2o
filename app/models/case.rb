@@ -1,11 +1,11 @@
-# == Schema Information
+ # == Schema Information
 #
 # Table name: cases
 #
 #  id                   :integer          not null, primary key
 #  current_opinion      :boolean          default(TRUE)
 #  short_name           :string(150)      not null
-#  full_name            :string
+#  full_name            :string(500)
 #  decision_date        :date
 #  author               :string(150)
 #  case_jurisdiction_id :integer
@@ -20,7 +20,7 @@
 #  karma                :integer
 #  pushed_from_id       :integer
 #  sent_in_cases_list   :boolean          default(FALSE)
-#  user_id              :integer          default(0)
+#  user_id              :integer          default(0), not null
 #  created_via_import   :boolean          default(FALSE), not null
 #
 
