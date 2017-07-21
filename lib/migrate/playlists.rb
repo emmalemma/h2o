@@ -41,31 +41,157 @@ module Migrate::Playlists
             ordinals: ordinals
           migrate_items object.playlist_items, path: ordinals, casebook: casebook
         else
-          if object.nil?
-            object = Default.create name: "[Missing #{item.actual_object_type} \##{item.actual_object_id}]",
+          imported_resource = object
+
+          if imported_resource.nil?
+            imported_resource = Default.create name: "[Missing #{item.actual_object_type} \##{item.actual_object_id}]",
               url: "https://h2o.law.harvard.edu/#{item.actual_object_type.downcase}s/#{item.actual_object_id}"
           end
-          if object.is_a? Migrate::Collage
-              if object.annotatable_type.in? %w{Playlist Collage Media}
-                object.annotatable_type = "Migrate::#{object.annotatable_type}"
-              end
-            object = object.annotatable
-            if object.nil?
-              object = Default.create name: "[Missing annotated #{item.actual_object.annotatable_type} \##{item.actual_object.annotatable_id}]",
-                url: "https://h2o.law.harvard.edu/collages/#{item.actual_object_id}"
+
+          if imported_resource.is_a? Migrate::Collage
+            if imported_resource.annotatable_type.in? %w{Playlist Collage Media}
+              imported_resource.annotatable_type = "Migrate::#{object.annotatable_type}"
+            end
+            imported_resource = imported_resource.annotatable
+
+            if imported_resource.nil?
+              imported_resource = Default.create name: "[Missing annotated #{object.annotatable_type} \##{object.annotatable_id}]",
+                url: "https://h2o.law.harvard.edu/collages/#{object_id}"
             end
           end
-          if object.is_a? Migrate::Media
-            object = Default.create name: object.name,
-              description: object.description,
-              url: object.content,
-              user_id: object.user_id
+
+          if imported_resource.is_a? Migrate::Media
+            imported_resource = Default.create name: imported_resource.name,
+              description: imported_resource.description,
+              url: imported_resource.content,
+              user_id: imported_resource.user_id
           end
-          Content::Resource.create casebook: casebook,
-            resource: object,
+
+          resource = Content::Resource.create casebook: casebook,
+            resource: imported_resource,
             ordinals: ordinals
+
+          if object.is_a? Migrate::Collage
+            migrate_annotations object, resource
+          end
+
+          resource
         end
       end
+    end
+
+    def migrate_annotations collage, resource
+      return unless resource.resource.class.in? [Case, TextBlock]
+
+      document = Nokogiri::HTML(resource.resource.content) {|config| config.noblanks}
+      idx = 0
+      document.traverse do |node|
+        next if node.text?
+        node['idx'] = idx
+        idx += 1
+      end
+
+      nodes = Nokogiri::HTML(resource.resource.content) {|config| config.noblanks}
+      idx = 0
+      nodes.traverse do |node|
+        next if node.text?
+        node['idx'] = idx
+        idx += 1
+      end
+      nodes.xpath('//div')
+        .each { |div| div.replace div.children }
+      nodes = nodes.xpath "//body/node()[not(self::text()) and not(self::text()[1])]"
+
+
+      collage.annotations.each do |annotation|
+        content = nil
+        kind = if annotation.hidden
+          if annotation.annotation.present?
+            content = annotation.annotation
+            'replace'
+          else
+            'elide'
+          end
+        elsif annotation.link.present?
+          content = annotation.link
+          'link'
+        elsif annotation.annotation.present?
+          content = annotation.annotation
+          'note'
+        elsif annotation.highlight_only.present?
+          content = annotation.highlight_only
+          'highlight'
+        else
+          # puts "Need help migrating annotation \##{annotation.id}: Collage \##{annotation.collage.id} #{annotation.xpath_start} -> #{annotation.xpath_end}"
+          'highlight'
+        end
+        content_annotation = Content::Annotation.new resource: resource,
+          kind: kind,
+          content: "#{content} [\##{annotation.id}]"
+        if annotation.xpath_start.present? && annotation.xpath_end.present?
+          start_p, start_offset = locate_p annotation.xpath_start, annotation.start_offset, nodes, document
+          end_p, end_offset = locate_p annotation.xpath_end, annotation.end_offset, nodes, document
+          unless (start_p && end_p && start_offset && end_offset)
+            next
+          end
+          if start_p > end_p
+            _start_p = end_p
+            end_p = start_p
+            start_p = _start_p
+          end
+          content_annotation.assign_attributes start_p: start_p,
+            end_p: end_p,
+            start_offset: start_offset,
+            end_offset: end_offset
+        else
+          puts "no xpath for annotation \#", annotation.id
+          return
+        end
+        content_annotation.save!
+      end
+    end
+
+    def locate_p xpath, offset, nodes, document
+      # xpath.gsub! %r{/div\[\d+\]}, ''
+
+      unless xpath.present?
+        puts "no xpath"
+        # puts "Got a bad p for \##{annotation.id}: Collage \##{annotation.collage.id} at #{annotation.xpath_start} -> #{annotation.xpath_end}"
+
+        return
+      end
+      target_node = document.xpath('//body' + xpath).first
+      unless target_node
+        unless xpath.match %r{a\[2\]$}
+          puts "no target node: #{xpath}"
+          # puts "Got a bad p for \##{annotation.id}: Collage \##{annotation.collage.id} at #{annotation.xpath_start} -> #{annotation.xpath_end}"
+
+        end
+        return
+      end
+      target_p = target_node.xpath('./ancestor-or-self::node()[parent::body]').first
+      unless target_p
+        puts "no target p for #{xpath}"
+        # puts "Got a bad p for \##{annotation.id}: Collage \##{annotation.collage.id} at #{annotation.xpath_start} -> #{annotation.xpath_end}"
+
+        binding.pry
+        return
+      end
+      p_idx = nodes.find_index {|node| node['idx'] == target_p['idx']}
+      if target_p == target_node
+        return p_idx, offset
+      end
+      target_p.traverse do |node|
+        next unless node.text?
+
+        if node.parent == target_node
+          break
+        end
+        if node.text?
+          offset += node.text.length
+        end
+      end
+      return p_idx, offset
     end
 
     # associate original with migrated by creation date
