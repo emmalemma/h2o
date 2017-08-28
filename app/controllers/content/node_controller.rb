@@ -77,7 +77,7 @@ class Content::NodeController < ApplicationController
   end
 
   def content_params
-    (params[:content_casebook] || params[:content_section] || params[:content_resource]).permit(:title, :subtitle, :headnote, :public, ordinals: [])
+    (params[:content_casebook] || params[:content_section] || params[:content_resource]).permit(:title, :subtitle, :headnote, :public, :resource_type, :resource_id, ordinals: [], resource_attributes: [:id, :content, :url])
   end
 
   def disable_turbolinks_cache

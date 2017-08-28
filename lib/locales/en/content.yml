@@ -9,6 +9,8 @@ en:
         password_confirmation: Confirm password
         save: Save
         revert: Cancel
+        resource-content: Resource content
+        resource-url: Resource URL
   content:
     add-resource-modal:
       title: Add Resource
